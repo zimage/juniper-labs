@@ -1,0 +1,568 @@
+version 20.3R1.8;
+groups {
+    core-bgp {
+        logical-systems {
+            <*> {
+                protocols {
+                    bgp {
+                        group rr {
+                            type internal;
+                            export export-aggregate;
+                            neighbor 172.16.0.255;
+                        }
+                    }
+                }
+                policy-options {
+                    policy-statement export-aggregate {
+                        from protocol aggregate;
+                        then accept;
+                    }
+                }
+                routing-options {
+                    autonomous-system 65505;
+                    aggregate {
+                        route 172.16.0.0/24 community 65505:65505;
+                    }
+                }
+            }
+        }
+    }
+    border-bgp {
+        logical-systems {
+            <*> {
+                protocols {
+                    bgp {
+                        group rr {
+                            type internal;
+                            export next-hop-self;
+                            neighbor 172.16.0.255;
+                        }
+                    }
+                }
+                policy-options {
+                    policy-statement export-my-networks {
+                        from community originate;
+                        then accept;
+                    }
+                    policy-statement next-hop-self {
+                        then {
+                            next-hop self;
+                        }
+                    }
+                    community originate members 65505:65505;
+                }
+                routing-options {
+                    autonomous-system 65505;
+                }
+            }
+        }
+    }
+}
+system {
+    services {
+        ssh;
+    }
+    default-address-selection;
+    syslog {
+        user * {
+            any emergency;
+        }
+        file messages {
+            any any;
+            authorization info;
+        }
+        file interactive-commands {
+            interactive-commands any;
+        }
+    }
+}
+logical-systems {
+    a-r1 {
+        interfaces {
+            lo0 {
+                unit 8 {
+                    description a-r1;
+                    family inet {
+                        address 172.16.0.8/32;
+                    }
+                }
+            }
+        }
+        routing-options {
+            aggregate {
+                route 172.17.0.0/16;
+            }
+        }
+    }
+    b-r1 {
+        apply-groups border-bgp;
+        interfaces {
+            ge-0/0/1 {
+                unit 11 {
+                    description ptp-b-r1-e-r1;
+                    vlan-id 11;
+                    family inet {
+                        rpf-check fail-filter log-reject;
+                        address 10.0.0.131/31;
+                    }
+                }
+                unit 12 {
+                    description ptp-c-r1-b-r1;
+                    vlan-id 12;
+                    family inet {
+                        address 172.16.12.0/31;
+                    }
+                    family mpls;
+                }
+            }
+            lo0 {
+                unit 3 {
+                    description b-r1;
+                    family inet {
+                        address 172.16.0.3/32;
+                    }
+                }
+            }
+        }
+        protocols {
+            bgp {
+                group as65500 {
+                    neighbor 10.0.0.130 {
+                        export export-my-networks;
+                        peer-as 65500;
+                    }
+                }
+            }
+            ospf {
+                area 0.0.0.0 {
+                    interface lo0.3 {
+                        passive;
+                    }
+                    interface ge-0/0/1.12;
+                }
+            }
+        }
+        routing-options {
+            router-id 172.16.0.3;
+        }
+        firewall {
+            filter log-reject {
+                interface-specific;
+                term default {
+                    then {
+                        log;
+                        reject;
+                    }
+                }
+            }
+        }
+    }
+    b-r2 {
+        apply-groups border-bgp;
+        interfaces {
+            ge-0/0/1 {
+                unit 17 {
+                    description ptp-c-r2-b-r2;
+                    vlan-id 17;
+                    family inet {
+                        address 172.16.17.1/31;
+                    }
+                    family mpls;
+                }
+                unit 18 {
+                    description ptp-e-r2-b-r2;
+                    vlan-id 18;
+                    family inet {
+                        address 10.1.0.129/31;
+                    }
+                }
+            }
+            lo0 {
+                unit 7 {
+                    description b-r2;
+                    family inet {
+                        address 172.16.0.7/32;
+                    }
+                }
+            }
+        }
+        protocols {
+            bgp {
+                group as65501 {
+                    export export-my-networks;
+                    peer-as 65501;
+                    neighbor 10.1.0.128;
+                }
+            }
+            ospf {
+                area 0.0.0.0 {
+                    interface lo0.7;
+                    interface ge-0/0/1.17;
+                }
+            }
+        }
+        routing-options {
+            router-id 172.16.0.7;
+        }
+    }
+    c-r1 {
+        apply-groups core-bgp;
+        interfaces {
+            ge-0/0/0 {
+                unit 12 {
+                    description ptp-c-r1-b-r1;
+                    vlan-id 12;
+                    family inet {
+                        address 172.16.12.1/31;
+                    }
+                    family mpls;
+                }
+                unit 13 {
+                    description ptp-c-r1-c-r2;
+                    vlan-id 13;
+                    family inet {
+                        address 172.16.13.0/31;
+                    }
+                    family mpls;
+                }
+                unit 14 {
+                    description ptp-c-r1-c-r3;
+                    vlan-id 14;
+                    family inet {
+                        address 172.16.14.0/31;
+                    }
+                    family mpls;
+                }
+            }
+            lo0 {
+                unit 4 {
+                    description c-r1;
+                    family inet {
+                        address 172.16.0.4/32;
+                    }
+                }
+            }
+        }
+        protocols {
+            ospf {
+                area 0.0.0.0 {
+                    interface lo0.4 {
+                        passive;
+                    }
+                    interface ge-0/0/0.12;
+                    interface ge-0/0/0.13;
+                    interface ge-0/0/0.14;
+                }
+            }
+        }
+        routing-options {
+            router-id 172.16.0.4;
+        }
+    }
+    c-r2 {
+        apply-groups core-bgp;
+        interfaces {
+            ge-0/0/0 {
+                unit 15 {
+                    description ptp-c-r2-c-r3;
+                    vlan-id 15;
+                    family inet {
+                        address 172.16.15.0/31;
+                    }
+                    family mpls;
+                }
+                unit 17 {
+                    description ptp-c-r2-b-r2;
+                    vlan-id 17;
+                    family inet {
+                        address 172.16.17.0/31;
+                    }
+                    family mpls;
+                }
+            }
+            ge-0/0/1 {
+                unit 13 {
+                    description ptp-c-r1-c-r2;
+                    vlan-id 13;
+                    family inet {
+                        address 172.16.13.1/31;
+                    }
+                    family mpls;
+                }
+            }
+            lo0 {
+                unit 5 {
+                    description c-r2;
+                    family inet {
+                        address 172.16.0.5/32;
+                    }
+                }
+            }
+        }
+        protocols {
+            ospf {
+                area 0.0.0.0 {
+                    interface lo0.5 {
+                        passive;
+                    }
+                    interface ge-0/0/1.13;
+                    interface ge-0/0/0.15;
+                    interface ge-0/0/0.17;
+                }
+            }
+        }
+        routing-options {
+            router-id 172.16.0.5;
+        }
+    }
+    c-r3 {
+        apply-groups core-bgp;
+        interfaces {
+            ge-0/0/0 {
+                unit 16 {
+                    description ptp-c-r3-rr-1;
+                    vlan-id 16;
+                    family inet {
+                        address 172.16.16.0/31;
+                    }
+                }
+            }
+            ge-0/0/1 {
+                unit 14 {
+                    description ptp-c-r1-c-r3;
+                    vlan-id 14;
+                    family inet {
+                        address 172.16.14.1/31;
+                    }
+                    family mpls;
+                }
+                unit 15 {
+                    description ptp-c-r2-c-r3;
+                    vlan-id 15;
+                    family inet {
+                        address 172.16.15.1/31;
+                    }
+                    family mpls;
+                }
+            }
+            lo0 {
+                unit 6 {
+                    description c-r3;
+                    family inet {
+                        address 172.16.0.6/32;
+                    }
+                }
+            }
+        }
+        protocols {
+            ospf {
+                area 0.0.0.0 {
+                    interface lo0.6 {
+                        passive;
+                    }
+                    interface ge-0/0/1.14;
+                    interface ge-0/0/1.15;
+                    interface ge-0/0/0.16;
+                }
+            }
+        }
+        routing-options {
+            router-id 172.16.0.6;
+        }
+    }
+    e-r1 {
+        interfaces {
+            ge-0/0/0 {
+                unit 10 {
+                    description ptp-e-r1-e-r2;
+                    vlan-id 10;
+                    family inet {
+                        address 10.0.0.128/31;
+                    }
+                }
+                unit 11 {
+                    vlan-id 11;
+                    family inet {
+                        address 10.0.0.130/31;
+                    }
+                }
+            }
+            lo0 {
+                unit 1 {
+                    description e-r1;
+                    family inet {
+                        address 10.0.0.0/32;
+                        address 192.168.0.0/32;
+                    }
+                }
+            }
+        }
+        protocols {
+            bgp {
+                group e-r2 {
+                    export export-my-networks;
+                    peer-as 65501;
+                    neighbor 10.0.0.129;
+                }
+                group as65505 {
+                    neighbor 10.0.0.131 {
+                        export export-my-networks;
+                        peer-as 65505;
+                    }
+                }
+            }
+        }
+        policy-options {
+            policy-statement export-my-networks {
+                from {
+                    route-filter 10.0.0.0/24 exact;
+                }
+                then accept;
+            }
+        }
+        routing-options {
+            router-id 10.0.0.0;
+            autonomous-system 65500;
+            aggregate {
+                route 10.0.0.0/24;
+            }
+        }
+    }
+    e-r2 {
+        interfaces {
+            ge-0/0/0 {
+                unit 18 {
+                    description ptp-e-r2-b-r2;
+                    vlan-id 18;
+                    family inet {
+                        address 10.1.0.128/31;
+                    }
+                }
+            }
+            ge-0/0/1 {
+                unit 10 {
+                    vlan-id 10;
+                    family inet {
+                        address 10.0.0.129/31;
+                    }
+                }
+            }
+            lo0 {
+                unit 2 {
+                    description e-r2;
+                    family inet {
+                        address 10.1.0.0/32;
+                    }
+                }
+            }
+        }
+        protocols {
+            bgp {
+                group e-r1 {
+                    export export-my-networks;
+                    peer-as 65500;
+                    neighbor 10.0.0.128;
+                }
+                group as65505 {
+                    export export-my-networks;
+                    peer-as 65505;
+                    neighbor 10.1.0.129;
+                }
+            }
+        }
+        policy-options {
+            policy-statement export-my-networks {
+                from {
+                    route-filter 10.1.0.0/24 exact;
+                }
+                then accept;
+            }
+        }
+        routing-options {
+            router-id 10.0.0.1;
+            autonomous-system 65501;
+            aggregate {
+                route 10.1.0.0/24;
+            }
+        }
+    }
+    rr-1 {
+        interfaces {
+            ge-0/0/1 {
+                unit 16 {
+                    description ptp-c-r3-rr-1;
+                    vlan-id 16;
+                    family inet {
+                        address 172.16.16.1/31;
+                    }
+                }
+            }
+            lo0 {
+                unit 255 {
+                    description rr-1;
+                    family inet {
+                        address 172.16.0.255/32;
+                    }
+                }
+            }
+        }
+        protocols {
+            bgp {
+                group border {
+                    type internal;
+                    export [ export-originate-networks reject-all ];
+                    neighbor 172.16.0.3;
+                    neighbor 172.16.0.7;
+                }
+                group core {
+                    type internal;
+                    cluster 172.16.0.255;
+                    neighbor 172.16.0.4;
+                    neighbor 172.16.0.5;
+                    neighbor 172.16.0.6;
+                }
+                local-address 172.16.0.255;
+            }
+            ospf {
+                area 0.0.0.0 {
+                    interface lo0.255 {
+                        passive;
+                    }
+                    interface ge-0/0/1.16;
+                }
+            }
+        }
+        policy-options {
+            policy-statement accept-all {
+                then accept;
+            }
+            policy-statement export-originate-networks {
+                from community originate;
+                then accept;
+            }
+            policy-statement reject-all {
+                then reject;
+            }
+            community originate members 65505:65505;
+        }
+        routing-options {
+            router-id 172.16.0.255;
+            autonomous-system 65505;
+        }
+    }
+}
+interfaces {
+    ge-0/0/0 {
+        vlan-tagging;
+    }
+    ge-0/0/1 {
+        vlan-tagging;
+    }
+    ge-0/0/2 {
+        unit 0 {
+            family inet {
+                dhcp;
+            }
+        }
+    }
+}
