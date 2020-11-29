@@ -10,7 +10,9 @@ the topology described at the end of chapter 1 and has all the
 additional config from chapters 2 and 3. 
 
 ## Physical Connections
-ACX does not support using logical tunnel interfaces to connect logical systems, so a physical connection had to be used. A patch cable needs to be connected between ge-1/0/0 and ge-1/0/1. All of the inter-router links run accross this link.
+* ACX does not support using logical tunnel interfaces to connect logical systems, so a physical connection had to be used. A patch cable needs to be connected between ge-1/0/0 and ge-1/0/1. All of the inter-router links run accross this link.
+* There is an L2VPN configured across the provider network. CE routers should connect to ge-1/1/0 and ge-1/1/1.
+* There is an L3VPN configured across the provider network. CE3 connects to ge-1/1/2.3 and CE4 connects to ge-1/1/2.4
 
 ## Caveats
 ### Chapter 2
