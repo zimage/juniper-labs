@@ -1,2 +1,1 @@
-# juniper-labs
-i![Lab Topology](topology.png?raw=true "Lab Topology")
+![Lab Topology](topology.png?raw=true "Lab Topology")
